@@ -13,4 +13,8 @@
     var href=a.getAttribute('href').replace(/\.html$/,'').replace(/\/$/,'');
     if(path.endsWith(href)||href.endsWith(path.split('/').pop())) a.classList.add('current');
   });
+  var lo=document.getElementById('logoutBtn');
+  if(lo) lo.addEventListener('click',function(){
+    fetch('/api/logout',{method:'POST'}).then(function(){location.href='/dashboard';});
+  });
 })();
