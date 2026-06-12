@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>플랜티넷 사업부 통합 손익 · 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#ffffff; --panel2:#f5f7fa; --line:#e2e6ed;
+    --txt:#1a2332; --muted:#667085; --accent:#2563eb; --accent2:#059669;
+    --warn:#d97706; --danger:#dc2626;
+    --d0:#4f8cff; --d1:#22d3a6; --d2:#f7b955; --d3:#b08cff; --d4:#ff8fab; --d5:#56cfe1; --d6:#ffd166;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:"Segoe UI","Malgun Gothic",sans-serif;font-size:14px;line-height:1.45}
+  .wrap{max-width:1600px;margin:0 auto;padding:24px 26px 60px}
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
+  h1{font-size:24px;font-weight:700;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
+  .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:18px}
+  .kpi{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:12px;padding:12px 14px;border-top:3px solid var(--accent)}
+  .kpi .label{color:var(--muted);font-size:11px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi .val{font-size:17px;font-weight:700}
+  .kpi .meta{font-size:11px;margin-top:4px;color:var(--muted)}
+  .pos{color:var(--accent2)} .neg{color:var(--danger)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+  .card h3{font-size:14px;font-weight:600;margin-bottom:4px}
+  .card .hint{color:var(--muted);font-size:12px;margin-bottom:12px}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}
+  .chartbox{position:relative;height:300px}
+  table.bu{width:100%;border-collapse:collapse;font-size:12px}
+  table.bu th,table.bu td{padding:7px 8px;text-align:right;border:1px solid var(--line);white-space:nowrap}
+  table.bu th:first-child,table.bu td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);z-index:1;min-width:118px}
+  table.bu thead th{background:var(--panel2);font-weight:600;color:var(--txt)}
+  table.bu .metric{font-weight:600;background:rgba(255,255,255,.02)}
+  table.bu .rate{color:var(--warn);font-style:italic;font-size:11px}
+  table.bu .bold{font-weight:700}
+  table.bu .hl{background:rgba(79,140,255,.12)}
+  table.bu .tot{background:rgba(247,185,85,.08);font-weight:700}
+  .tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+  .plan{color:var(--muted)}
+  .warnbox{background:rgba(247,185,85,.08);border:1px solid rgba(247,185,85,.25);border-radius:10px;padding:10px 14px;font-size:12px;color:#e8c882;margin-bottom:16px}
+  .footer{color:var(--muted);font-size:11.5px;margin-top:26px;border-top:1px solid var(--line);padding-top:14px}
+  @media(max-width:1200px){.kpis{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1fr}}
+  @media(max-width:800px){.kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>사업부 통합 손익 대시보드</h1>
+      <div class="sub">출처: 월별손익 시트 · 부서별 손익 요약 · 단위: 백만원</div>
+    </div>
+    <div class="controls">
+      <label class="sub">기준월</label>
+      <select id="monthSel"></select>
+      <label class="sub">집계</label>
+      <select id="periodSel">
+        <option value="cur">당월</option>
+        <option value="q1">1분기</option>
+        <option value="q2">2분기</option>
+        <option value="q3">3분기</option>
+        <option value="q4">4분기</option>
+        <option value="cum">누계</option>
+        <option value="year">연간</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="warnbox" id="noteBox"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h3>사업부별 손익 요약 <span class="tag" id="periodTag"></span></h3>
+    <div class="hint">행=손익항목 · 열=사업부/임대/합계 · 간접비=매출총이익−연구소차감후 · 5월~12월 동일값=계획 추정</div>
+    <div style="overflow-x:auto">
+      <table class="bu" id="mainTable"></table>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>부서별 매출</h3>
+      <div class="hint">선택 기간 기준 (백만원)</div>
+      <div class="chartbox"><canvas id="revChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>부서별 연구소차감후 이익</h3>
+      <div class="hint">R205 기준 (백만원)</div>
+      <div class="chartbox"><canvas id="profitChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>부서별 매출 / 이익 추이 (월별)</h3>
+    <div class="hint">매출(막대) · 연구소차감후 이익(선) · 합계(전사) 기준</div>
+    <div class="chartbox" style="height:340px"><canvas id="trendChart"></canvas></div>
+  </div>
+
+  <div class="footer" id="footerNote"></div>
+</div>
+
+<script>
+const DATA = /*__DATA__*/;
+const MONTHS = DATA.months;
+const DEPTS = DATA.departments;
+const M = 1e6;
+const DEPT_COLORS = ['#4f8cff','#22d3a6','#f7b955','#b08cff','#ff8fab','#56cfe1','#ffd166'];
+
+function fmtM(n){
+  const x = Math.round(n / M);
+  const s = Math.abs(x).toLocaleString('ko-KR');
+  return x < 0 ? '(' + s + ')' : s;
+}
+function fmtPct(n){ return !isFinite(n) ? '-' : (n * 100).toFixed(0) + '%'; }
+function mm(n){ return n / M; }
+
+function detectPlanStart(){
+  const t = DATA.rows.revenue;
+  for (let i = 1; i < MONTHS.length; i++){
+    const m = MONTHS[i], same = MONTHS.slice(i).every(k =>
+      Math.abs((t.monthly[k].total||0) - (t.monthly[m].total||0)) < 1
+    );
+    if (same) return m;
+  }
+  return MONTHS[MONTHS.length - 1];
+}
+const PLAN_START = detectPlanStart();
+function isPlan(m){ return m >= PLAN_START; }
+
+let state = { month: Math.min(4, PLAN_START - 1 > 0 ? PLAN_START - 1 : 4), period: 'q1' };
+
+function val(metric, m, half, deptId){
+  const bucket = half === 'A' ? 'monthly' : 'cum';
+  const row = DATA.rows[metric];
+  return (row && row[bucket] && row[bucket][m] && row[bucket][m][deptId]) || 0;
+}
+
+function quarter(q){ return [q*3-2, q*3-1, q*3]; }
+
+function periodSpec(){
+  const m = state.month, p = state.period;
+  if (p === 'cur') return { label: m + '월', months: [m], mode: 'sum', plan: isPlan(m) };
+  if (p === 'cum') return { label: '누계(~' + m + '월)', months: MONTHS.filter(x => x <= m), mode: 'cum', plan: false };
+  if (p === 'year') return { label: '연간', months: MONTHS.slice(), mode: 'sum', plan: true };
+  const q = +p[1];
+  return { label: q + '분기', months: quarter(q), mode: 'sum', plan: isPlan(q * 3) };
+}
+
+function aggregate(metric, deptId, spec){
+  if (spec.mode === 'cum'){
+    const last = spec.months[spec.months.length - 1];
+    return val(metric, last, 'B', deptId);
+  }
+  return spec.months.reduce((s, m) => s + val(metric, m, 'A', deptId), 0);
+}
+
+function derived(spec, deptId){
+  const rev = aggregate('revenue', deptId, spec);
+  const gp = aggregate('gross_profit', deptId, spec);
+  const div = aggregate('division_profit', deptId, spec);
+  const op = aggregate('operating_income', deptId, spec);
+  const direct = rev - gp;
+  const indirect = gp - div;
+  return { rev, direct, gp, indirect, div, op,
+    gpRate: rev ? gp / rev : NaN,
+    divRate: rev ? div / rev : NaN,
+    opRate: rev ? op / rev : NaN
+  };
+}
+
+const METRICS = [
+  { key:'rev', label:'매출', fn:d=>d.rev, bold:true },
+  { key:'direct', label:'직접비', fn:d=>d.direct },
+  { key:'gp', label:'매출총이익', fn:d=>d.gp, bold:true },
+  { key:'gpRate', label:'매출총이익률', fn:d=>d.gpRate, rate:true },
+  { key:'indirect', label:'간접비', fn:d=>d.indirect },
+  { key:'div', label:'연구소차감후', fn:d=>d.div, bold:true, hl:true },
+  { key:'divRate', label:'부문이익률', fn:d=>d.divRate, rate:true },
+  { key:'op', label:'영업이익', fn:d=>d.op, bold:true },
+  { key:'opRate', label:'영업이익률', fn:d=>d.opRate, rate:true },
+];
+
+function renderTable(){
+  const spec = periodSpec();
+  document.getElementById('periodTag').textContent = spec.label + (spec.plan ? ' · 계획' : '');
+  const derivedByDept = {};
+  DEPTS.forEach(d => { derivedByDept[d.id] = derived(spec, d.id); });
+
+  const head = '<thead><tr><th>항목</th>' +
+    DEPTS.map(d => '<th class="' + (d.id==='total'?'tot':'') + '">' + d.label + '</th>').join('') +
+    '</tr></thead>';
+
+  const body = METRICS.map(m => {
+    const cls = (m.rate?'rate ':'') + (m.bold?'bold ':'') + (m.hl?'hl ':'') + 'metric';
+    const cells = DEPTS.map(d => {
+      const v = m.rate ? fmtPct(m.fn(derivedByDept[d.id])) : fmtM(m.fn(derivedByDept[d.id]));
+      const neg = !m.rate && m.fn(derivedByDept[d.id]) < 0 ? ' neg' : '';
+      return '<td class="' + (d.id==='total'?'tot':'') + neg + '">' + v + '</td>';
+    }).join('');
+    return '<tr class="' + cls + '"><td>' + m.label + '</td>' + cells + '</tr>';
+  }).join('');
+
+  document.getElementById('mainTable').innerHTML = head + '<tbody>' + body + '</tbody>';
+}
+
+function renderKPIs(){
+  const spec = periodSpec();
+  const opDepts = DEPTS.filter(d => d.id !== 'total');
+  document.getElementById('kpis').innerHTML = opDepts.map((d,i) => {
+    const x = derived(spec, d.id);
+    const c = x.div < 0 ? 'neg' : 'pos';
+    return '<div class="kpi" style="border-top-color:' + DEPT_COLORS[i] + '">' +
+      '<div class="label">' + d.label + '</div>' +
+      '<div class="val">' + fmtM(x.rev) + '</div>' +
+      '<div class="meta ' + c + '">이익 ' + fmtM(x.div) + ' · ' + fmtPct(x.divRate) + '</div></div>';
+  }).join('');
+}
+
+let charts = {};
+Chart.defaults.color = '#8a98b0';
+Chart.defaults.font.family = '"Segoe UI","Malgun Gothic",sans-serif';
+const gridColor = 'rgba(0,0,0,.08)';
+
+function baseScales(){
+  return {
+    x:{ grid:{color:gridColor}, ticks:{color:'#667085'} },
+    y:{ grid:{color:gridColor}, ticks:{color:'#667085', callback:v=>v.toLocaleString('ko-KR')} }
+  };
+}
+
+function barChart(id, label, fn){
+  const spec = periodSpec();
+  const opDepts = DEPTS.filter(d => d.id !== 'total');
+  const labels = opDepts.map(d => d.label.replace('사업팀','').replace('영업팀',''));
+  const vals = opDepts.map(d => mm(fn(derived(spec, d.id))));
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {
+    type:'bar',
+    data:{ labels, datasets:[{ label, data:vals, backgroundColor:DEPT_COLORS.slice(0,6), borderRadius:5 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false},
+      tooltip:{ callbacks:{ label:c => c.label + ': ' + Math.round(c.parsed.y).toLocaleString('ko-KR') + ' 백만원' } } },
+      scales: baseScales() }
+  });
+}
+
+function trendChart(){
+  const m = state.month;
+  const labels = MONTHS.filter(x => x <= m || state.period === 'year').map(x => x + '월');
+  const ms = labels.map(l => +l.replace('월',''));
+  if (charts.trend) charts.trend.destroy();
+  charts.trend = new Chart(document.getElementById('trendChart'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { type:'bar', label:'매출(합계)', data:ms.map(x=>mm(val('revenue',x,'A','total'))),
+          backgroundColor:'rgba(79,140,255,.5)', borderRadius:3, order:2 },
+        { type:'line', label:'연구소차감후(합계)', data:ms.map(x=>mm(val('division_profit',x,'A','total'))),
+          borderColor:'#f7b955', tension:.3, borderWidth:2, pointRadius:3, order:1 }
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'top'} },
+      scales: baseScales() }
+  });
+}
+
+function renderAll(){
+  renderKPIs();
+  renderTable();
+  barChart('revChart', '매출', d => d.rev);
+  barChart('profitChart', '연구소차감후', d => d.div);
+  trendChart();
+}
+
+function init(){
+  document.getElementById('noteBox').textContent =
+    '참고: 본 워크북에 「6.사업부 통합」 시트가 없어 「월별손익」 부서열·세그먼트 합계로 동일 형식을 재구성했습니다. 목표(P)·전년(LY) 데이터는 포함되지 않습니다. 합계 열=세그먼트 전사합계(부서열 단순합과 상이할 수 있음).';
+
+  document.getElementById('footerNote').textContent =
+    '당월·분기·연간 = 해당 월 Half-A 합산 · 누계 = 기준월 Half-B 누적 · 4월 이후 동일 월값=계획 추정';
+
+  const mSel = document.getElementById('monthSel');
+  mSel.innerHTML = MONTHS.map(m =>
+    '<option value="' + m + '">' + m + '월' + (isPlan(m) ? ' (계획)' : '') + '</option>'
+  ).join('');
+  mSel.value = state.month;
+  mSel.addEventListener('change', e => { state.month = +e.target.value; renderAll(); });
+
+  document.getElementById('periodSel').value = state.period;
+  document.getElementById('periodSel').addEventListener('change', e => { state.period = e.target.value; renderAll(); });
+
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>

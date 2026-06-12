@@ -1,0 +1,5 @@
+with open("_template2.html","r",encoding="utf-8") as f: tpl=f.read()
+with open("dashboard_data.json","r",encoding="utf-8") as f: data=f.read()
+out=tpl.replace("/*__DATA__*/", data)
+with open("손익요약_대시보드.html","w",encoding="utf-8") as f: f.write(out)
+print("built:", len(out), "bytes")

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>플랜티넷 사업부 통합 손익 · 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#ffffff; --panel2:#f5f7fa; --line:#e2e6ed;
+    --txt:#1a2332; --muted:#667085; --accent:#2563eb; --accent2:#059669;
+    --warn:#d97706; --danger:#dc2626;
+    --d0:#4f8cff; --d1:#22d3a6; --d2:#f7b955; --d3:#b08cff; --d4:#ff8fab; --d5:#56cfe1; --d6:#ffd166;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:"Segoe UI","Malgun Gothic",sans-serif;font-size:14px;line-height:1.45}
+  .wrap{max-width:1600px;margin:0 auto;padding:24px 26px 60px}
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
+  h1{font-size:24px;font-weight:700;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
+  .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:18px}
+  .kpi{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:12px;padding:12px 14px;border-top:3px solid var(--accent)}
+  .kpi .label{color:var(--muted);font-size:11px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi .val{font-size:17px;font-weight:700}
+  .kpi .meta{font-size:11px;margin-top:4px;color:var(--muted)}
+  .pos{color:var(--accent2)} .neg{color:var(--danger)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+  .card h3{font-size:14px;font-weight:600;margin-bottom:4px}
+  .card .hint{color:var(--muted);font-size:12px;margin-bottom:12px}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}
+  .chartbox{position:relative;height:300px}
+  table.bu{width:100%;border-collapse:collapse;font-size:12px}
+  table.bu th,table.bu td{padding:7px 8px;text-align:right;border:1px solid var(--line);white-space:nowrap}
+  table.bu th:first-child,table.bu td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);z-index:1;min-width:118px}
+  table.bu thead th{background:var(--panel2);font-weight:600;color:var(--txt)}
+  table.bu .metric{font-weight:600;background:rgba(255,255,255,.02)}
+  table.bu .rate{color:var(--warn);font-style:italic;font-size:11px}
+  table.bu .bold{font-weight:700}
+  table.bu .hl{background:rgba(79,140,255,.12)}
+  table.bu .tot{background:rgba(247,185,85,.08);font-weight:700}
+  .tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+  .plan{color:var(--muted)}
+  .warnbox{background:rgba(247,185,85,.08);border:1px solid rgba(247,185,85,.25);border-radius:10px;padding:10px 14px;font-size:12px;color:#e8c882;margin-bottom:16px}
+  .footer{color:var(--muted);font-size:11.5px;margin-top:26px;border-top:1px solid var(--line);padding-top:14px}
+  @media(max-width:1200px){.kpis{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1fr}}
+  @media(max-width:800px){.kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>사업부 통합 손익 대시보드</h1>
+      <div class="sub">출처: 월별손익 시트 · 부서별 손익 요약 · 단위: 백만원</div>
+    </div>
+    <div class="controls">
+      <label class="sub">기준월</label>
+      <select id="monthSel"></select>
+      <label class="sub">집계</label>
+      <select id="periodSel">
+        <option value="cur">당월</option>
+        <option value="q1">1분기</option>
+        <option value="q2">2분기</option>
+        <option value="q3">3분기</option>
+        <option value="q4">4분기</option>
+        <option value="cum">누계</option>
+        <option value="year">연간</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="warnbox" id="noteBox"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h3>사업부별 손익 요약 <span class="tag" id="periodTag"></span></h3>
+    <div class="hint">행=손익항목 · 열=사업부/임대/합계 · 간접비=매출총이익−연구소차감후 · 5월~12월 동일값=계획 추정</div>
+    <div style="overflow-x:auto">
+      <table class="bu" id="mainTable"></table>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>부서별 매출</h3>
+      <div class="hint">선택 기간 기준 (백만원)</div>
+      <div class="chartbox"><canvas id="revChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>부서별 연구소차감후 이익</h3>
+      <div class="hint">R205 기준 (백만원)</div>
+      <div class="chartbox"><canvas id="profitChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>부서별 매출 / 이익 추이 (월별)</h3>
+    <div class="hint">매출(막대) · 연구소차감후 이익(선) · 합계(전사) 기준</div>
+    <div class="chartbox" style="height:340px"><canvas id="trendChart"></canvas></div>
+  </div>
+
+  <div class="footer" id="footerNote"></div>
+</div>
+
+<script>
+const DATA = {"source": "26년04월 관리회계_플랜티넷_v0_0519.xlsx", "sheet": "월별손익", "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "departments": [{"id": "customer", "label": "Customer사업팀"}, {"id": "m2", "label": "M_2본부영업팀"}, {"id": "biz", "label": "Biz사업팀"}, {"id": "overseas", "label": "해외사업팀"}, {"id": "support", "label": "경영지원팀"}, {"id": "rent", "label": "임대"}, {"id": "total", "label": "합계"}], "metrics": {"revenue": {"row": 6, "label": "매출"}, "gross_profit": {"row": 27, "label": "매출총이익"}, "dept_operating": {"row": 70, "label": "매출부서 영업이익"}, "after_direct": {"row": 115, "label": "직접지원 차감 후"}, "after_indirect": {"row": 160, "label": "간접지원 차감 후"}, "division_profit": {"row": 205, "label": "연구소 차감 후"}, "operating_income": {"row": 250, "label": "영업이익"}}, "rows": {"revenue": {"row": 6, "monthly": {"1": {"customer": 642521334.0, "m2": 148494.0, "biz": 1522727028.0, "overseas": 0.0, "support": 167188035.0, "rent": 167188035.0, "total": 2332584891.0}, "2": {"customer": 1043935391.0, "m2": 320453.0, "biz": 9587296.0, "overseas": 0.0, "support": 167229490.0, "rent": 167229490.0, "total": 1221072630.0}, "3": {"customer": 1371090711.0, "m2": 470750.0, "biz": 33376633.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1572991025.0}, "4": {"customer": 630861363.0, "m2": 428680.0, "biz": 577815156.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1377158130.0}, "5": {"customer": 630861363.0, "m2": 428680.0, "biz": 577815156.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1377158130.0}, "6": {"customer": 630861363.0, "m2": 428680.0, "biz": 577815156.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1377158130.0}, "7": {"customer": 630861363.0, "m2": 428680.0, "biz": 577815156.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1377158130.0}, "8": {"customer": 630861363.0, "m2": 428680.0, "biz": 577815156.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1377158130.0}, "9": {"customer": 630861363.0, "m2": 428680.0, "biz": 577815156.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1377158130.0}, "10": {"customer": 630861363.0, "m2": 428680.0, "biz": 577815156.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1377158130.0}, "11": {"customer": 630861363.0, "m2": 428680.0, "biz": 577815156.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1377158130.0}, "12": {"customer": 630861363.0, "m2": 428680.0, "biz": 577815156.0, "overseas": 0.0, "support": 168052931.0, "rent": 168052931.0, "total": 1377158130.0}}, "cum": {"1": {"customer": 642521334.0, "m2": 148494.0, "biz": 1522727028.0, "overseas": 0.0, "support": 167188035.0, "rent": 167188035.0, "total": 2332584891.0}, "2": {"customer": 1686456725.0, "m2": 468947.0, "biz": 1532314324.0, "overseas": 0.0, "support": 334417525.0, "rent": 334417525.0, "total": 3553657521.0}, "3": {"customer": 3057547436.0, "m2": 939697.0, "biz": 1565690957.0, "overseas": 0.0, "support": 502470456.0, "rent": 502470456.0, "total": 5126648546.0}, "4": {"customer": 3688408799.0, "m2": 1368377.0, "biz": 2143506113.0, "overseas": 0.0, "support": 670523387.0, "rent": 670523387.0, "total": 6503806676.0}, "5": {"customer": 4319270162.0, "m2": 1797057.0, "biz": 2721321269.0, "overseas": 0.0, "support": 838576318.0, "rent": 838576318.0, "total": 7880964806.0}, "6": {"customer": 4950131525.0, "m2": 2225737.0, "biz": 3299136425.0, "overseas": 0.0, "support": 1006629249.0, "rent": 1006629249.0, "total": 9258122936.0}, "7": {"customer": 5580992888.0, "m2": 2654417.0, "biz": 3876951581.0, "overseas": 0.0, "support": 1174682180.0, "rent": 1174682180.0, "total": 10635281066.0}, "8": {"customer": 6211854251.0, "m2": 3083097.0, "biz": 4454766737.0, "overseas": 0.0, "support": 1342735111.0, "rent": 1342735111.0, "total": 12012439196.0}, "9": {"customer": 6842715614.0, "m2": 3511777.0, "biz": 5032581893.0, "overseas": 0.0, "support": 1510788042.0, "rent": 1510788042.0, "total": 13389597326.0}, "10": {"customer": 7473576977.0, "m2": 3940457.0, "biz": 5610397049.0, "overseas": 0.0, "support": 1678840973.0, "rent": 1678840973.0, "total": 14766755456.0}, "11": {"customer": 8104438340.0, "m2": 4369137.0, "biz": 6188212205.0, "overseas": 0.0, "support": 1846893904.0, "rent": 1846893904.0, "total": 16143913586.0}, "12": {"customer": 8735299703.0, "m2": 4797817.0, "biz": 6766027361.0, "overseas": 0.0, "support": 2014946835.0, "rent": 2014946835.0, "total": 17521071716.0}}}, "gross_profit": {"row": 27, "monthly": {"1": {"customer": 598087621.0, "m2": 148494.0, "biz": 33448037.0, "overseas": 0.0, "support": 167188035.0, "rent": 167188035.0, "total": 798872187.0}, "2": {"customer": 933775578.0, "m2": 320453.0, "biz": 10847719.0, "overseas": 0.0, "support": 167229490.0, "rent": 167229490.0, "total": 1112173240.0}, "3": {"customer": 1333644201.0, "m2": 468880.0, "biz": 32279967.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 1501352815.0}, "4": {"customer": 595202667.0, "m2": 428680.0, "biz": 91054159.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 821645273.0}, "5": {"customer": 595202667.0, "m2": 428680.0, "biz": 91054159.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 821645273.0}, "6": {"customer": 595202667.0, "m2": 428680.0, "biz": 91054159.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 821645273.0}, "7": {"customer": 595202667.0, "m2": 428680.0, "biz": 91054159.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 821645273.0}, "8": {"customer": 595202667.0, "m2": 428680.0, "biz": 91054159.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 821645273.0}, "9": {"customer": 595202667.0, "m2": 428680.0, "biz": 91054159.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 821645273.0}, "10": {"customer": 595202667.0, "m2": 428680.0, "biz": 91054159.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 821645273.0}, "11": {"customer": 595202667.0, "m2": 428680.0, "biz": 91054159.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 821645273.0}, "12": {"customer": 595202667.0, "m2": 428680.0, "biz": 91054159.0, "overseas": 0.0, "support": 134959767.0, "rent": 134959767.0, "total": 821645273.0}}, "cum": {"1": {"customer": 598087621.0, "m2": 148494.0, "biz": 33448037.0, "overseas": 0.0, "support": 167188035.0, "rent": 167188035.0, "total": 798872187.0}, "2": {"customer": 1531863199.0, "m2": 468947.0, "biz": 44295756.0, "overseas": 0.0, "support": 334417525.0, "rent": 334417525.0, "total": 1911045427.0}, "3": {"customer": 2865507400.0, "m2": 937827.0, "biz": 76575723.0, "overseas": 0.0, "support": 469377292.0, "rent": 469377292.0, "total": 3412398242.0}, "4": {"customer": 3460710067.0, "m2": 1366507.0, "biz": 167629882.0, "overseas": 0.0, "support": 604337059.0, "rent": 604337059.0, "total": 4234043515.0}, "5": {"customer": 4055912734.0, "m2": 1795187.0, "biz": 258684041.0, "overseas": 0.0, "support": 739296826.0, "rent": 739296826.0, "total": 5055688788.0}, "6": {"customer": 4651115401.0, "m2": 2223867.0, "biz": 349738200.0, "overseas": 0.0, "support": 874256593.0, "rent": 874256593.0, "total": 5877334061.0}, "7": {"customer": 5246318068.0, "m2": 2652547.0, "biz": 440792359.0, "overseas": 0.0, "support": 1009216360.0, "rent": 1009216360.0, "total": 6698979334.0}, "8": {"customer": 5841520735.0, "m2": 3081227.0, "biz": 531846518.0, "overseas": 0.0, "support": 1144176127.0, "rent": 1144176127.0, "total": 7520624607.0}, "9": {"customer": 6436723402.0, "m2": 3509907.0, "biz": 622900677.0, "overseas": 0.0, "support": 1279135894.0, "rent": 1279135894.0, "total": 8342269880.0}, "10": {"customer": 7031926069.0, "m2": 3938587.0, "biz": 713954836.0, "overseas": 0.0, "support": 1414095661.0, "rent": 1414095661.0, "total": 9163915153.0}, "11": {"customer": 7627128736.0, "m2": 4367267.0, "biz": 805008995.0, "overseas": 0.0, "support": 1549055428.0, "rent": 1549055428.0, "total": 9985560426.0}, "12": {"customer": 8222331403.0, "m2": 4795947.0, "biz": 896063154.0, "overseas": 0.0, "support": 1684015195.0, "rent": 1684015195.0, "total": 10807205699.0}}}, "dept_operating": {"row": 70, "monthly": {"1": {"customer": 505782494.0, "m2": -16252155.0, "biz": 11720482.0, "overseas": -26135930.0, "support": 128976350.0, "rent": 128976350.0, "total": 604091241.0}, "2": {"customer": 859620643.0, "m2": -12480561.0, "biz": -9322373.0, "overseas": -13813807.0, "support": 129687545.0, "rent": 129687545.0, "total": 953691447.0}, "3": {"customer": 1250127016.0, "m2": -20050843.0, "biz": 9521530.0, "overseas": -29401762.0, "support": 130603707.0, "rent": 130603707.0, "total": 1340799648.0}, "4": {"customer": 504755830.0, "m2": -16632842.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 631091546.0}, "5": {"customer": 504755830.0, "m2": -16632842.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 631091546.0}, "6": {"customer": 504755830.0, "m2": -16632842.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 631091546.0}, "7": {"customer": 504755830.0, "m2": -16632842.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 631091546.0}, "8": {"customer": 504755830.0, "m2": -16632842.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 631091546.0}, "9": {"customer": 504755830.0, "m2": -16632842.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 631091546.0}, "10": {"customer": 504755830.0, "m2": -16632842.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 631091546.0}, "11": {"customer": 504755830.0, "m2": -16632842.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 631091546.0}, "12": {"customer": 504755830.0, "m2": -16632842.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 631091546.0}}, "cum": {"1": {"customer": 505782494.0, "m2": -16252155.0, "biz": 11720482.0, "overseas": -26135930.0, "support": 128976350.0, "rent": 128976350.0, "total": 604091241.0}, "2": {"customer": 1365403137.0, "m2": -28732716.0, "biz": 2398109.0, "overseas": -39949737.0, "support": 258663895.0, "rent": 258663895.0, "total": 1557782688.0}, "3": {"customer": 2615530153.0, "m2": -48783559.0, "biz": 11919639.0, "overseas": -69351499.0, "support": 389267602.0, "rent": 389267602.0, "total": 2898582336.0}, "4": {"customer": 3120285983.0, "m2": -65416401.0, "biz": 42693622.0, "overseas": -87760631.0, "support": 519871309.0, "rent": 519871309.0, "total": 3529673882.0}, "5": {"customer": 3625041813.0, "m2": -82049243.0, "biz": 73467605.0, "overseas": -106169763.0, "support": 650475016.0, "rent": 650475016.0, "total": 4160765428.0}, "6": {"customer": 4129797643.0, "m2": -98682085.0, "biz": 104241588.0, "overseas": -124578895.0, "support": 781078723.0, "rent": 781078723.0, "total": 4791856974.0}, "7": {"customer": 4634553473.0, "m2": -115314927.0, "biz": 135015571.0, "overseas": -142988027.0, "support": 911682430.0, "rent": 911682430.0, "total": 5422948520.0}, "8": {"customer": 5139309303.0, "m2": -131947769.0, "biz": 165789554.0, "overseas": -161397159.0, "support": 1042286137.0, "rent": 1042286137.0, "total": 6054040066.0}, "9": {"customer": 5644065133.0, "m2": -148580611.0, "biz": 196563537.0, "overseas": -179806291.0, "support": 1172889844.0, "rent": 1172889844.0, "total": 6685131612.0}, "10": {"customer": 6148820963.0, "m2": -165213453.0, "biz": 227337520.0, "overseas": -198215423.0, "support": 1303493551.0, "rent": 1303493551.0, "total": 7316223158.0}, "11": {"customer": 6653576793.0, "m2": -181846295.0, "biz": 258111503.0, "overseas": -216624555.0, "support": 1434097258.0, "rent": 1434097258.0, "total": 7947314704.0}, "12": {"customer": 7158332623.0, "m2": -198479137.0, "biz": 288885486.0, "overseas": -235033687.0, "support": 1564700965.0, "rent": 1564700965.0, "total": 8578406250.0}}}, "after_direct": {"row": 115, "monthly": {"1": {"customer": 468410911.0, "m2": -51232211.0, "biz": 11720482.0, "overseas": -26135930.0, "support": 128976350.0, "rent": 128976350.0, "total": 531739602.0}, "2": {"customer": 806405028.0, "m2": -92360865.0, "biz": -9322373.0, "overseas": -13813807.0, "support": 129687545.0, "rent": 129687545.0, "total": 820595528.0}, "3": {"customer": 1196205680.0, "m2": -55457942.0, "biz": 9521530.0, "overseas": -29401762.0, "support": 130603707.0, "rent": 130603707.0, "total": 1251471213.0}, "4": {"customer": 459329492.0, "m2": -56406190.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 545891860.0}, "5": {"customer": 459329492.0, "m2": -56406190.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 545891860.0}, "6": {"customer": 459329492.0, "m2": -56406190.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 545891860.0}, "7": {"customer": 459329492.0, "m2": -56406190.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 545891860.0}, "8": {"customer": 459329492.0, "m2": -56406190.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 545891860.0}, "9": {"customer": 459329492.0, "m2": -56406190.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 545891860.0}, "10": {"customer": 459329492.0, "m2": -56406190.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 545891860.0}, "11": {"customer": 459329492.0, "m2": -56406190.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 545891860.0}, "12": {"customer": 459329492.0, "m2": -56406190.0, "biz": 30773983.0, "overseas": -18409132.0, "support": 130603707.0, "rent": 130603707.0, "total": 545891860.0}}, "cum": {"1": {"customer": 468410911.0, "m2": -51232211.0, "biz": 11720482.0, "overseas": -26135930.0, "support": 128976350.0, "rent": 128976350.0, "total": 531739602.0}, "2": {"customer": 1274815939.0, "m2": -143593076.0, "biz": 2398109.0, "overseas": -39949737.0, "support": 258663895.0, "rent": 258663895.0, "total": 1352335130.0}, "3": {"customer": 2471021619.0, "m2": -199051018.0, "biz": 11919639.0, "overseas": -69351499.0, "support": 389267602.0, "rent": 389267602.0, "total": 2603806343.0}, "4": {"customer": 2930351111.0, "m2": -255457208.0, "biz": 42693622.0, "overseas": -87760631.0, "support": 519871309.0, "rent": 519871309.0, "total": 3149698203.0}, "5": {"customer": 3389680603.0, "m2": -311863398.0, "biz": 73467605.0, "overseas": -106169763.0, "support": 650475016.0, "rent": 650475016.0, "total": 3695590063.0}, "6": {"customer": 3849010095.0, "m2": -368269588.0, "biz": 104241588.0, "overseas": -124578895.0, "support": 781078723.0, "rent": 781078723.0, "total": 4241481923.0}, "7": {"customer": 4308339587.0, "m2": -424675778.0, "biz": 135015571.0, "overseas": -142988027.0, "support": 911682430.0, "rent": 911682430.0, "total": 4787373783.0}, "8": {"customer": 4767669079.0, "m2": -481081968.0, "biz": 165789554.0, "overseas": -161397159.0, "support": 1042286137.0, "rent": 1042286137.0, "total": 5333265643.0}, "9": {"customer": 5226998571.0, "m2": -537488158.0, "biz": 196563537.0, "overseas": -179806291.0, "support": 1172889844.0, "rent": 1172889844.0, "total": 5879157503.0}, "10": {"customer": 5686328063.0, "m2": -593894348.0, "biz": 227337520.0, "overseas": -198215423.0, "support": 1303493551.0, "rent": 1303493551.0, "total": 6425049363.0}, "11": {"customer": 6145657555.0, "m2": -650300538.0, "biz": 258111503.0, "overseas": -216624555.0, "support": 1434097258.0, "rent": 1434097258.0, "total": 6970941223.0}, "12": {"customer": 6604987047.0, "m2": -706706728.0, "biz": 288885486.0, "overseas": -235033687.0, "support": 1564700965.0, "rent": 1564700965.0, "total": 7516833083.0}}}, "after_indirect": {"row": 160, "monthly": {"1": {"customer": 442979408.0, "m2": -67100688.0, "biz": -7008415.0, "overseas": -35429240.0, "support": 128976350.0, "rent": 128976350.0, "total": 462417415.0}, "2": {"customer": 780605950.0, "m2": -107458951.0, "biz": -26708978.0, "overseas": -26645255.0, "support": 129687545.0, "rent": 129687545.0, "total": 749480311.0}, "3": {"customer": 1169131206.0, "m2": -78080890.0, "biz": -13905699.0, "overseas": -40960642.0, "support": 130603707.0, "rent": 130603707.0, "total": 1166787682.0}, "4": {"customer": 426671467.0, "m2": -75811463.0, "biz": 8028647.0, "overseas": -32220944.0, "support": 130603707.0, "rent": 130603707.0, "total": 457271414.0}, "5": {"customer": 426671467.0, "m2": -75811463.0, "biz": 8028647.0, "overseas": -32220944.0, "support": 130603707.0, "rent": 130603707.0, "total": 457271414.0}, "6": {"customer": 426671467.0, "m2": -75811463.0, "biz": 8028647.0, "overseas": -32220944.0, "support": 130603707.0, "rent": 130603707.0, "total": 457271414.0}, "7": {"customer": 426671467.0, "m2": -75811463.0, "biz": 8028647.0, "overseas": -32220944.0, "support": 130603707.0, "rent": 130603707.0, "total": 457271414.0}, "8": {"customer": 426671467.0, "m2": -75811463.0, "biz": 8028647.0, "overseas": -32220944.0, "support": 130603707.0, "rent": 130603707.0, "total": 457271414.0}, "9": {"customer": 426671467.0, "m2": -75811463.0, "biz": 8028647.0, "overseas": -32220944.0, "support": 130603707.0, "rent": 130603707.0, "total": 457271414.0}, "10": {"customer": 426671467.0, "m2": -75811463.0, "biz": 8028647.0, "overseas": -32220944.0, "support": 130603707.0, "rent": 130603707.0, "total": 457271414.0}, "11": {"customer": 426671467.0, "m2": -75811463.0, "biz": 8028647.0, "overseas": -32220944.0, "support": 130603707.0, "rent": 130603707.0, "total": 457271414.0}, "12": {"customer": 426671467.0, "m2": -75811463.0, "biz": 8028647.0, "overseas": -32220944.0, "support": 130603707.0, "rent": 130603707.0, "total": 457271414.0}}, "cum": {"1": {"customer": 442979408.0, "m2": -67100688.0, "biz": -7008415.0, "overseas": -35429240.0, "support": 128976350.0, "rent": 128976350.0, "total": 462417415.0}, "2": {"customer": 1223585358.0, "m2": -174559639.0, "biz": -33717393.0, "overseas": -62074495.0, "support": 258663895.0, "rent": 258663895.0, "total": 1211897726.0}, "3": {"customer": 2392716564.0, "m2": -252640529.0, "biz": -47623092.0, "overseas": -103035137.0, "support": 389267602.0, "rent": 389267602.0, "total": 2378685408.0}, "4": {"customer": 2819388031.0, "m2": -328451992.0, "biz": -39594445.0, "overseas": -135256081.0, "support": 519871309.0, "rent": 519871309.0, "total": 2835956822.0}, "5": {"customer": 3246059498.0, "m2": -404263455.0, "biz": -31565798.0, "overseas": -167477025.0, "support": 650475016.0, "rent": 650475016.0, "total": 3293228236.0}, "6": {"customer": 3672730965.0, "m2": -480074918.0, "biz": -23537151.0, "overseas": -199697969.0, "support": 781078723.0, "rent": 781078723.0, "total": 3750499650.0}, "7": {"customer": 4099402432.0, "m2": -555886381.0, "biz": -15508504.0, "overseas": -231918913.0, "support": 911682430.0, "rent": 911682430.0, "total": 4207771064.0}, "8": {"customer": 4526073899.0, "m2": -631697844.0, "biz": -7479857.0, "overseas": -264139857.0, "support": 1042286137.0, "rent": 1042286137.0, "total": 4665042478.0}, "9": {"customer": 4952745366.0, "m2": -707509307.0, "biz": 548790.0, "overseas": -296360801.0, "support": 1172889844.0, "rent": 1172889844.0, "total": 5122313892.0}, "10": {"customer": 5379416833.0, "m2": -783320770.0, "biz": 8577437.0, "overseas": -328581745.0, "support": 1303493551.0, "rent": 1303493551.0, "total": 5579585306.0}, "11": {"customer": 5806088300.0, "m2": -859132233.0, "biz": 16606084.0, "overseas": -360802689.0, "support": 1434097258.0, "rent": 1434097258.0, "total": 6036856720.0}, "12": {"customer": 6232759767.0, "m2": -934943696.0, "biz": 24634731.0, "overseas": -393023633.0, "support": 1564700965.0, "rent": 1564700965.0, "total": 6494128134.0}}}, "division_profit": {"row": 205, "monthly": {"1": {"customer": 383923404.0, "m2": -86346179.0, "biz": -15254738.0, "overseas": -46593417.0, "support": 128976350.0, "rent": 128976350.0, "total": 137806265.0}, "2": {"customer": 714956683.0, "m2": -124280966.0, "biz": -33945968.0, "overseas": -36882816.0, "support": 129687545.0, "rent": 129687545.0, "total": 440163297.0}, "3": {"customer": 1104607456.0, "m2": -100397061.0, "biz": -22401691.0, "overseas": -51903665.0, "support": 130603707.0, "rent": 130603707.0, "total": 806581103.0}, "4": {"customer": 358789039.0, "m2": -97964433.0, "biz": 6862898.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 130603707.0, "total": 82162223.0}, "5": {"customer": 358789039.0, "m2": -97964433.0, "biz": 6862898.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 130603707.0, "total": 82162223.0}, "6": {"customer": 358789039.0, "m2": -97964433.0, "biz": 6862898.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 130603707.0, "total": 82162223.0}, "7": {"customer": 358789039.0, "m2": -97964433.0, "biz": 6862898.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 130603707.0, "total": 82162223.0}, "8": {"customer": 358789039.0, "m2": -97964433.0, "biz": 6862898.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 130603707.0, "total": 82162223.0}, "9": {"customer": 358789039.0, "m2": -97964433.0, "biz": 6862898.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 130603707.0, "total": 82162223.0}, "10": {"customer": 358789039.0, "m2": -97964433.0, "biz": 6862898.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 130603707.0, "total": 82162223.0}, "11": {"customer": 358789039.0, "m2": -97964433.0, "biz": 6862898.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 130603707.0, "total": 82162223.0}, "12": {"customer": 358789039.0, "m2": -97964433.0, "biz": 6862898.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 130603707.0, "total": 82162223.0}}, "cum": {"1": {"customer": 383923404.0, "m2": -86346179.0, "biz": -15254738.0, "overseas": -46593417.0, "support": 128976350.0, "rent": 128976350.0, "total": 137806265.0}, "2": {"customer": 1098880087.0, "m2": -210627145.0, "biz": -49200706.0, "overseas": -83476233.0, "support": 258663895.0, "rent": 258663895.0, "total": 577969562.0}, "3": {"customer": 2203487543.0, "m2": -311024206.0, "biz": -71602397.0, "overseas": -135379898.0, "support": 389267602.0, "rent": 389267602.0, "total": 1384550665.0}, "4": {"customer": 2562276582.0, "m2": -408988639.0, "biz": -64739499.0, "overseas": -180767444.0, "support": 519871309.0, "rent": 519871309.0, "total": 1466712888.0}, "5": {"customer": 2921065621.0, "m2": -506953072.0, "biz": -57876601.0, "overseas": -226154990.0, "support": 650475016.0, "rent": 650475016.0, "total": 1548875111.0}, "6": {"customer": 3279854660.0, "m2": -604917505.0, "biz": -51013703.0, "overseas": -271542536.0, "support": 781078723.0, "rent": 781078723.0, "total": 1631037334.0}, "7": {"customer": 3638643699.0, "m2": -702881938.0, "biz": -44150805.0, "overseas": -316930082.0, "support": 911682430.0, "rent": 911682430.0, "total": 1713199557.0}, "8": {"customer": 3997432738.0, "m2": -800846371.0, "biz": -37287907.0, "overseas": -362317628.0, "support": 1042286137.0, "rent": 1042286137.0, "total": 1795361780.0}, "9": {"customer": 4356221777.0, "m2": -898810804.0, "biz": -30425009.0, "overseas": -407705174.0, "support": 1172889844.0, "rent": 1172889844.0, "total": 1877524003.0}, "10": {"customer": 4715010816.0, "m2": -996775237.0, "biz": -23562111.0, "overseas": -453092720.0, "support": 1303493551.0, "rent": 1303493551.0, "total": 1959686226.0}, "11": {"customer": 5073799855.0, "m2": -1094739670.0, "biz": -16699213.0, "overseas": -498480266.0, "support": 1434097258.0, "rent": 1434097258.0, "total": 2041848449.0}, "12": {"customer": 5432588894.0, "m2": -1192704103.0, "biz": -9836315.0, "overseas": -543867812.0, "support": 1564700965.0, "rent": 1564700965.0, "total": 2124010672.0}}}, "operating_income": {"row": 250, "monthly": {"1": {"customer": 139973848.0, "m2": -185765274.0, "biz": -15254738.0, "overseas": -46593417.0, "support": 128976350.0, "rent": 0.0, "total": -205562386.0}, "2": {"customer": 495763698.0, "m2": -213042431.0, "biz": -35803978.0, "overseas": -36882816.0, "support": 129687545.0, "rent": 0.0, "total": 130350837.0}, "3": {"customer": 808744314.0, "m2": -192492982.0, "biz": -25101593.0, "overseas": -51903665.0, "support": 130603707.0, "rent": 0.0, "total": 415922138.0}, "4": {"customer": 55117106.0, "m2": -208681837.0, "biz": 3756160.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 0.0, "total": -335333852.0}, "5": {"customer": 55117106.0, "m2": -208681837.0, "biz": 3756160.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 0.0, "total": -335333852.0}, "6": {"customer": 55117106.0, "m2": -208681837.0, "biz": 3756160.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 0.0, "total": -335333852.0}, "7": {"customer": 55117106.0, "m2": -208681837.0, "biz": 3756160.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 0.0, "total": -335333852.0}, "8": {"customer": 55117106.0, "m2": -208681837.0, "biz": 3756160.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 0.0, "total": -335333852.0}, "9": {"customer": 55117106.0, "m2": -208681837.0, "biz": 3756160.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 0.0, "total": -335333852.0}, "10": {"customer": 55117106.0, "m2": -208681837.0, "biz": 3756160.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 0.0, "total": -335333852.0}, "11": {"customer": 55117106.0, "m2": -208681837.0, "biz": 3756160.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 0.0, "total": -335333852.0}, "12": {"customer": 55117106.0, "m2": -208681837.0, "biz": 3756160.0, "overseas": -45387546.0, "support": 130603707.0, "rent": 0.0, "total": -335333852.0}}, "cum": {"1": {"customer": -156063305.0, "m2": -257267351.0, "biz": -15254738.0, "overseas": -46593417.0, "support": -557760952.0, "rent": 0.0, "total": -205562386.0}, "2": {"customer": 66021887.0, "m2": -539081837.0, "biz": -51058716.0, "overseas": -83476233.0, "support": -1047698327.0, "rent": 0.0, "total": -75211549.0}, "3": {"customer": 567610581.0, "m2": -801980642.0, "biz": -76160309.0, "overseas": -135379898.0, "support": -1698412550.0, "rent": 0.0, "total": 340710589.0}, "4": {"customer": 263168458.0, "m2": -1096970842.0, "biz": -72404149.0, "overseas": -180767444.0, "support": -2402800993.0, "rent": 0.0, "total": 5376737.0}, "5": {"customer": -41273665.0, "m2": -1391961042.0, "biz": -68647989.0, "overseas": -226154990.0, "support": -3107189436.0, "rent": 0.0, "total": -329957115.0}, "6": {"customer": -345715788.0, "m2": -1686951242.0, "biz": -64891829.0, "overseas": -271542536.0, "support": -3811577879.0, "rent": 0.0, "total": -665290967.0}, "7": {"customer": -650157911.0, "m2": -1981941442.0, "biz": -61135669.0, "overseas": -316930082.0, "support": -4515966322.0, "rent": 0.0, "total": -1000624819.0}, "8": {"customer": -954600034.0, "m2": -2276931642.0, "biz": -57379509.0, "overseas": -362317628.0, "support": -5220354765.0, "rent": 0.0, "total": -1335958671.0}, "9": {"customer": -1259042157.0, "m2": -2571921842.0, "biz": -53623349.0, "overseas": -407705174.0, "support": -5924743208.0, "rent": 0.0, "total": -1671292523.0}, "10": {"customer": -1563484280.0, "m2": -2866912042.0, "biz": -49867189.0, "overseas": -453092720.0, "support": -6629131651.0, "rent": 0.0, "total": -2006626375.0}, "11": {"customer": -1867926403.0, "m2": -3161902242.0, "biz": -46111029.0, "overseas": -498480266.0, "support": -7333520094.0, "rent": 0.0, "total": -2341960227.0}, "12": {"customer": -2172368526.0, "m2": -3456892442.0, "biz": -42354869.0, "overseas": -543867812.0, "support": -8037908537.0, "rent": 0.0, "total": -2677294079.0}}}}, "meta": {"note": "6.사업부 통합 시트는 본 워크북에 없어 월별손익 부서열 기준으로 재구성", "plan_start_hint": 5}};
+const MONTHS = DATA.months;
+const DEPTS = DATA.departments;
+const M = 1e6;
+const DEPT_COLORS = ['#4f8cff','#22d3a6','#f7b955','#b08cff','#ff8fab','#56cfe1','#ffd166'];
+
+function fmtM(n){
+  const x = Math.round(n / M);
+  const s = Math.abs(x).toLocaleString('ko-KR');
+  return x < 0 ? '(' + s + ')' : s;
+}
+function fmtPct(n){ return !isFinite(n) ? '-' : (n * 100).toFixed(0) + '%'; }
+function mm(n){ return n / M; }
+
+function detectPlanStart(){
+  const t = DATA.rows.revenue;
+  for (let i = 1; i < MONTHS.length; i++){
+    const m = MONTHS[i], same = MONTHS.slice(i).every(k =>
+      Math.abs((t.monthly[k].total||0) - (t.monthly[m].total||0)) < 1
+    );
+    if (same) return m;
+  }
+  return MONTHS[MONTHS.length - 1];
+}
+const PLAN_START = detectPlanStart();
+function isPlan(m){ return m >= PLAN_START; }
+
+let state = { month: Math.min(4, PLAN_START - 1 > 0 ? PLAN_START - 1 : 4), period: 'q1' };
+
+function val(metric, m, half, deptId){
+  const bucket = half === 'A' ? 'monthly' : 'cum';
+  const row = DATA.rows[metric];
+  return (row && row[bucket] && row[bucket][m] && row[bucket][m][deptId]) || 0;
+}
+
+function quarter(q){ return [q*3-2, q*3-1, q*3]; }
+
+function periodSpec(){
+  const m = state.month, p = state.period;
+  if (p === 'cur') return { label: m + '월', months: [m], mode: 'sum', plan: isPlan(m) };
+  if (p === 'cum') return { label: '누계(~' + m + '월)', months: MONTHS.filter(x => x <= m), mode: 'cum', plan: false };
+  if (p === 'year') return { label: '연간', months: MONTHS.slice(), mode: 'sum', plan: true };
+  const q = +p[1];
+  return { label: q + '분기', months: quarter(q), mode: 'sum', plan: isPlan(q * 3) };
+}
+
+function aggregate(metric, deptId, spec){
+  if (spec.mode === 'cum'){
+    const last = spec.months[spec.months.length - 1];
+    return val(metric, last, 'B', deptId);
+  }
+  return spec.months.reduce((s, m) => s + val(metric, m, 'A', deptId), 0);
+}
+
+function derived(spec, deptId){
+  const rev = aggregate('revenue', deptId, spec);
+  const gp = aggregate('gross_profit', deptId, spec);
+  const div = aggregate('division_profit', deptId, spec);
+  const op = aggregate('operating_income', deptId, spec);
+  const direct = rev - gp;
+  const indirect = gp - div;
+  return { rev, direct, gp, indirect, div, op,
+    gpRate: rev ? gp / rev : NaN,
+    divRate: rev ? div / rev : NaN,
+    opRate: rev ? op / rev : NaN
+  };
+}
+
+const METRICS = [
+  { key:'rev', label:'매출', fn:d=>d.rev, bold:true },
+  { key:'direct', label:'직접비', fn:d=>d.direct },
+  { key:'gp', label:'매출총이익', fn:d=>d.gp, bold:true },
+  { key:'gpRate', label:'매출총이익률', fn:d=>d.gpRate, rate:true },
+  { key:'indirect', label:'간접비', fn:d=>d.indirect },
+  { key:'div', label:'연구소차감후', fn:d=>d.div, bold:true, hl:true },
+  { key:'divRate', label:'부문이익률', fn:d=>d.divRate, rate:true },
+  { key:'op', label:'영업이익', fn:d=>d.op, bold:true },
+  { key:'opRate', label:'영업이익률', fn:d=>d.opRate, rate:true },
+];
+
+function renderTable(){
+  const spec = periodSpec();
+  document.getElementById('periodTag').textContent = spec.label + (spec.plan ? ' · 계획' : '');
+  const derivedByDept = {};
+  DEPTS.forEach(d => { derivedByDept[d.id] = derived(spec, d.id); });
+
+  const head = '<thead><tr><th>항목</th>' +
+    DEPTS.map(d => '<th class="' + (d.id==='total'?'tot':'') + '">' + d.label + '</th>').join('') +
+    '</tr></thead>';
+
+  const body = METRICS.map(m => {
+    const cls = (m.rate?'rate ':'') + (m.bold?'bold ':'') + (m.hl?'hl ':'') + 'metric';
+    const cells = DEPTS.map(d => {
+      const v = m.rate ? fmtPct(m.fn(derivedByDept[d.id])) : fmtM(m.fn(derivedByDept[d.id]));
+      const neg = !m.rate && m.fn(derivedByDept[d.id]) < 0 ? ' neg' : '';
+      return '<td class="' + (d.id==='total'?'tot':'') + neg + '">' + v + '</td>';
+    }).join('');
+    return '<tr class="' + cls + '"><td>' + m.label + '</td>' + cells + '</tr>';
+  }).join('');
+
+  document.getElementById('mainTable').innerHTML = head + '<tbody>' + body + '</tbody>';
+}
+
+function renderKPIs(){
+  const spec = periodSpec();
+  const opDepts = DEPTS.filter(d => d.id !== 'total');
+  document.getElementById('kpis').innerHTML = opDepts.map((d,i) => {
+    const x = derived(spec, d.id);
+    const c = x.div < 0 ? 'neg' : 'pos';
+    return '<div class="kpi" style="border-top-color:' + DEPT_COLORS[i] + '">' +
+      '<div class="label">' + d.label + '</div>' +
+      '<div class="val">' + fmtM(x.rev) + '</div>' +
+      '<div class="meta ' + c + '">이익 ' + fmtM(x.div) + ' · ' + fmtPct(x.divRate) + '</div></div>';
+  }).join('');
+}
+
+let charts = {};
+Chart.defaults.color = '#8a98b0';
+Chart.defaults.font.family = '"Segoe UI","Malgun Gothic",sans-serif';
+const gridColor = 'rgba(0,0,0,.08)';
+
+function baseScales(){
+  return {
+    x:{ grid:{color:gridColor}, ticks:{color:'#667085'} },
+    y:{ grid:{color:gridColor}, ticks:{color:'#667085', callback:v=>v.toLocaleString('ko-KR')} }
+  };
+}
+
+function barChart(id, label, fn){
+  const spec = periodSpec();
+  const opDepts = DEPTS.filter(d => d.id !== 'total');
+  const labels = opDepts.map(d => d.label.replace('사업팀','').replace('영업팀',''));
+  const vals = opDepts.map(d => mm(fn(derived(spec, d.id))));
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {
+    type:'bar',
+    data:{ labels, datasets:[{ label, data:vals, backgroundColor:DEPT_COLORS.slice(0,6), borderRadius:5 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false},
+      tooltip:{ callbacks:{ label:c => c.label + ': ' + Math.round(c.parsed.y).toLocaleString('ko-KR') + ' 백만원' } } },
+      scales: baseScales() }
+  });
+}
+
+function trendChart(){
+  const m = state.month;
+  const labels = MONTHS.filter(x => x <= m || state.period === 'year').map(x => x + '월');
+  const ms = labels.map(l => +l.replace('월',''));
+  if (charts.trend) charts.trend.destroy();
+  charts.trend = new Chart(document.getElementById('trendChart'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { type:'bar', label:'매출(합계)', data:ms.map(x=>mm(val('revenue',x,'A','total'))),
+          backgroundColor:'rgba(79,140,255,.5)', borderRadius:3, order:2 },
+        { type:'line', label:'연구소차감후(합계)', data:ms.map(x=>mm(val('division_profit',x,'A','total'))),
+          borderColor:'#f7b955', tension:.3, borderWidth:2, pointRadius:3, order:1 }
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'top'} },
+      scales: baseScales() }
+  });
+}
+
+function renderAll(){
+  renderKPIs();
+  renderTable();
+  barChart('revChart', '매출', d => d.rev);
+  barChart('profitChart', '연구소차감후', d => d.div);
+  trendChart();
+}
+
+function init(){
+  document.getElementById('noteBox').textContent =
+    '참고: 본 워크북에 「6.사업부 통합」 시트가 없어 「월별손익」 부서열·세그먼트 합계로 동일 형식을 재구성했습니다. 목표(P)·전년(LY) 데이터는 포함되지 않습니다. 합계 열=세그먼트 전사합계(부서열 단순합과 상이할 수 있음).';
+
+  document.getElementById('footerNote').textContent =
+    '당월·분기·연간 = 해당 월 Half-A 합산 · 누계 = 기준월 Half-B 누적 · 4월 이후 동일 월값=계획 추정';
+
+  const mSel = document.getElementById('monthSel');
+  mSel.innerHTML = MONTHS.map(m =>
+    '<option value="' + m + '">' + m + '월' + (isPlan(m) ? ' (계획)' : '') + '</option>'
+  ).join('');
+  mSel.value = state.month;
+  mSel.addEventListener('change', e => { state.month = +e.target.value; renderAll(); });
+
+  document.getElementById('periodSel').value = state.period;
+  document.getElementById('periodSel').addEventListener('change', e => { state.period = e.target.value; renderAll(); });
+
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>
