@@ -12,6 +12,12 @@
 
 브라우저에서 HTML 파일을 더블클릭하면 바로 열립니다. (데이터가 HTML에 포함됨)
 
+## Vercel 배포
+
+**라이브 URL:** https://bsis-pearl.vercel.app
+
+- GitHub 저장소와 Vercel이 연동되어 `main` 브랜치 푸시 시 자동 재배포됩니다.
+
 ## 데이터 재생성
 
 엑셀 파일을 수정한 경우:
